@@ -1,0 +1,166 @@
+---
+title: "CAL ScratchJr TechCheck prepost"
+output: html_notebook
+---
+
+# Preliminaries
+
+## About the data
+
+Data are from pilots of the CAL ScratchJr curriculum in the spring of 2021. 
+
+## Read in the data
+
+```{r}
+projects_school07 <- read.csv("School07_Project_Final.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+projects_school08 <- read.csv("School08_Project_Final.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+```
+
+```{r}
+teachers <- read.csv("/Users/laura/01_WORK/01_Research_Projects/01_DevTech/02_DoE/04_Pilots2021/210606_Teacher_Info_FOI.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+```
+
+
+```{r}
+projects <- rbind(projects_school07, projects_school08)
+```
+
+
+## Loading libraries
+
+```{r}
+checkpoint::checkpoint("2021-06-10")
+```
+
+## Color palettes
+
+```{r colour_palettes, include=FALSE}
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+cbbPalette <- c("#999999","#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7","#5C5C5C")
+```
+
+## Functions
+
+### Min, max, mean, SD
+
+```{r}
+min_max_mean_sd <- function(variable){
+  
+  min = round(min(variable, na.rm = T),1)
+  max = round(max(variable, na.rm = T),1)
+  mean = round(mean(variable, na.rm = T),1)
+  sd = round(sd(variable, na.rm = T),1)
+  
+  my_list = list(min, max, mean, sd) 
+  
+  return(my_list)
+}
+```
+
+# Data prep
+
+## Renaming variables
+```{r}
+projects <- projects %>% dplyr::rename(StudentID = Student_ID, SchoolID = School_ID, TeacherID = Teacher_ID, Grade = Student_Grade_Level, TotalProjectScore = Total_project_scores_new, Time = time_recode)
+```
+
+
+## Recoding variables
+
+```{r}
+projects$Grade <- recode(projects$Grade, "First Grade" = "FirstGrade" , "Second Grade" = "SecondGrade")
+```
+
+```{r}
+projects$Time <- as.factor(as.character(projects$Time))
+```
+
+```{r}
+projects$StudentID <- as.factor(as.character(projects$StudentID))
+```
+
+
+## Selecting variables
+```{r}
+projects <- projects %>% dplyr::select(StudentID, SchoolID, Grade, Gender, TeacherID, Time, TotalProjectScore )
+```
+
+```{r}
+teachers <- teachers %>% dplyr::select(SchoolID, TeacherID, YearsTeaching, PreviousCodingYN, ActivityFOIProportion)
+```
+
+## Additional dfs
+
+### Wide df
+
+```{r}
+projects_time1 <- subset(projects, Time == "Time 1") %>% dplyr::rename(Time1= TotalProjectScore) %>% dplyr::select(-Time)
+projects_time2 <- subset(projects, Time == "Time 2") %>% dplyr::rename(Time2= TotalProjectScore) %>% dplyr::select(StudentID, Time2)
+projects_time3 <- subset(projects, Time == "Time 3") %>% dplyr::rename(Time3= TotalProjectScore) %>% dplyr::select(StudentID, Time3)
+
+projects_wide <- left_join(projects_time2, projects_time1, by = "StudentID")
+projects_wide <- left_join(projects_wide, projects_time3, by = "StudentID")
+
+projects_wide <-projects_wide %>% dplyr::select(StudentID, SchoolID, TeacherID, Grade, Gender, Time1, Time2, Time3)
+projects_wide <- left_join(projects_wide, teachers, by = c("SchoolID", "TeacherID"))
+projects_wide$TeacherID <- paste0(projects_wide$SchoolID, projects_wide$TeacherID)
+```
+
+
+## Change score
+
+```{r}
+projects_wide$ChangeScoreT1T3 <- projects_wide$Time3 - projects_wide$Time1
+```
+
+# Visualizations
+
+## Density
+
+```{r}
+projects_density <- ggplot(projects, aes(x = TotalProjectScore, group= Time, fill = Time)) +
+  geom_density(adjust=1.5, alpha = 0.4)+
+  scale_fill_manual(values = cbbPalette)+
+  theme(text = element_text(size = 20))+
+  labs(y="Density", x = "Total Project Scores")+
+  xlim(0,40)+
+  theme(text = element_text(size = 20)) +
+  theme_minimal()
+  #theme(legend.position = "none")
+ggsave("210609_Projects_scores_density.png")
+```
+
+## Bar chart
+
+```{r}
+projects_barplot <- ggplot(projects, aes(x = Time, y =  TotalProjectScore, fill = Time)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_minimal()+
+  scale_fill_manual(values = cbbPalette)+
+  facet_wrap(~Grade)+
+  theme(text = element_text(size = 20))  
+projects_barplot
+```
+## Boxplot
+### by grade
+```{r}
+projects_boxplot <- ggplot(aes(y = TotalProjectScore, x = Grade, fill= Time), data = projects) + 
+  geom_boxplot()+
+  scale_fill_manual(values = cbbPalette)+
+  theme_minimal()+
+  theme(text = element_text(size = 20))  
+  #labs(title="ScratchJr project scores by Grade and Time")
+ggsave("210609_DoE_Projects_boxplot.png")
+```
+
+### by teacher experience
+```{r}
+projects_scatter_teacher <- ggplot(aes(x = YearsTeaching, y = Time3), data = projects_wide) + 
+  geom_point()+
+  scale_fill_manual(values = cbbPalette)+
+  theme_minimal()+
+  theme(text = element_text(size = 20)) 
+ggsave("210609_DoE_Projects_boxplot.png")
+```
+

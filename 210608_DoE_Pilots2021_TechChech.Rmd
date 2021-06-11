@@ -1,0 +1,216 @@
+---
+title: "CAL ScratchJr TechCheck prepost"
+output: html_notebook
+---
+
+# Preliminaries
+
+## About the data
+
+Data are from pilots of the CAL ScratchJr curriculum in the spring of 2021. 
+
+## Read in the data
+
+```{r}
+techcheck <- read.csv("20210609_DOEpilot_AllKthru2_TechCheckDataAnon.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+```
+
+## Loading libraries
+
+```{r}
+checkpoint("2021-06-10")
+```
+
+## Color palettes
+
+```{r colour_palettes, include=FALSE}
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cbbPalette <- c("#999999","#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7","#5C5C5C")
+```
+
+## Functions
+
+### Min, max, mean, SD
+
+```{r}
+min_max_mean_sd <- function(variable){
+  
+  min = round(min(variable, na.rm = T),1)
+  max = round(max(variable, na.rm = T),1)
+  mean = round(mean(variable, na.rm = T),1)
+  sd = round(sd(variable, na.rm = T),1)
+  
+  my_list = list(min, max, mean, sd) 
+  
+  return(my_list)
+}
+```
+
+## Vectors
+
+# Data prep
+
+## Selecting variables
+
+```{r}
+techcheck <- techcheck %>% dplyr::select(Grade, TeacherID = Teacher_ID, StudentID = Student_ID, Gender, SchoolID = School_ID, TimeOfTest = TestTimePoint, TotalScore = totalscore)
+```
+
+## Modify & create variables
+
+```{r}
+techcheck$Grade <- recode(techcheck$Grade,  "Second Grade" = "SecondGrade", "First Grade"= "FirstGrade", "Kindergarten" = "Kindergarten")
+
+techcheck$Grade <- factor(techcheck$Grade, levels = c("Kindergarten", "FirstGrade", "SecondGrade"))
+```
+
+```{r}
+techcheck$StudentID <- as.factor(as.character(techcheck$StudentID))
+```
+
+```{r}
+techcheck$TimeOfTest <- recode (techcheck$TimeOfTest, "Post- Curriculum" = "Post-Curriculum")
+techcheck$TimeOfTest <- factor(techcheck$TimeOfTest, levels = c("Pre-Curriculum", "Post-Curriculum"))
+```
+
+```{r}
+techcheck_no_na <- na.omit(techcheck)
+```
+
+
+
+## Make wide df
+
+```{r}
+techcheck_pre <- subset(techcheck, TimeOfTest=="Pre-Curriculum")
+techcheck_pre <- techcheck_pre %>% dplyr::rename(PreCurriculum = TotalScore) %>% dplyr::select(-TimeOfTest)
+techcheck_post <- techcheck %>% filter(TimeOfTest == "Post-Curriculum") %>% dplyr::select(StudentID, TimeOfTest, TotalScore) 
+techcheck_post <- techcheck_post %>% dplyr::select(PostCurriculum = TotalScore, StudentID)
+techcheck_wide <- right_join(techcheck_pre, techcheck_post, by = "StudentID")
+```
+
+```{r}
+techcheck_wide$ChangeScore <- techcheck_wide$PostCurriculum - techcheck_wide$PreCurriculum
+```
+
+```{r}
+techcheck_wide_no_na <- na.omit(techcheck_wide)
+```
+
+
+# Visualization
+
+## Raincloud
+
+```{r}
+
+w = 6
+h = 4
+
+y_lim_min = 0
+y_lim_max = 15
+
+before = techcheck_wide$PreCurriculum
+after = techcheck_wide$PostCurriculum
+n <- length(before) 
+d <- data.frame(y = c(before, after),
+               x = rep(c(1,2), each=n),
+               id = techcheck_wide$StudentID)
+set.seed(321)
+d$xj <- jitter(d$x, amount = .09) 
+```
+
+```{r}
+techcheck_prepost_raincloud <- ggplot(data = d, aes(y = y)) +
+   geom_point(data = d %>% filter(x =="1"), aes(x = xj), color = '#999999', size = 1.5, 
+              alpha = .6) +
+   geom_point(data = d %>% filter(x =="2"), aes(x = xj), color = '#E69F00', size = 1.5, 
+              alpha = .6) +
+   geom_line(aes(x = xj, group = id), color = 'lightgray', alpha = .3) +
+  
+   geom_half_boxplot(
+     data = d %>% filter(x=="1"), aes(x=x, y = y), position = position_nudge(x = -.25), 
+     side = "r",outlier.shape = NA, center = TRUE, errorbar.draw = FALSE, width = .2, 
+     fill = '#999999') +
+   
+   geom_half_boxplot(
+     data = d %>% filter(x=="2"), aes(x=x, y = y), position = position_nudge(x = .15), 
+     side = "r",outlier.shape = NA, center = TRUE, errorbar.draw = FALSE, width = .2, 
+     fill = '#E69F00') +
+  
+   geom_half_violin(
+     data = d %>% filter(x=="1"),aes(x = x, y = y), position = position_nudge(x = -.3), 
+     side = "l", fill = '#999999') +
+ 
+   geom_half_violin(
+     data = d %>% filter(x=="2"),aes(x = x, y = y), position = position_nudge(x = .3), 
+     side = "r", fill = "#E69F00") +
+  
+  scale_x_continuous(breaks=c(1,2), labels=c("Pre", "Post"), limits=c(0, 3)) +
+   xlab("Time point") + ylab("TechCheck score") +
+   theme_classic()+
+   coord_cartesian(ylim=c(y_lim_min, y_lim_max))
+
+ggsave("210609_Pilots2021_TechCheck_prepost.png")
+```
+## Barchart 
+
+Create summary
+
+```{r}
+techcheck_summary <- techcheck %>% 
+  group_by(Grade, TimeOfTest) %>% 
+  summarise(mean_score = mean(TotalScore),  
+            sd_score = sd(TotalScore), 
+            n_score = n(),
+            SE_score = sd(TotalScore)/sqrt(n()))
+
+techcheck_summary <- na.omit(techcheck_summary)
+
+techcheck_summary$Grade <- factor(techcheck_summary$Grade, levels = c("Kindergarten", "FirstGrade", "SecondGrade"))
+techcheck_barplot <- ggplot(techcheck_summary, aes(x = TimeOfTest, y = mean_score, Group = Grade, fill = TimeOfTest)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  geom_errorbar(aes(ymin = mean_score-sd_score, ymax = mean_score+sd_score,width=0.2))+
+  scale_fill_manual(values = cbbPalette)+
+  theme_minimal()+
+  facet_wrap(~Grade)+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+ggsave("210609_Pilots2021_TechCheck_prepost_by_grade.png")
+```
+```{r}
+techcheck_boxplot <- ggplot(aes(y = TotalScore, x = Grade, fill= TimeOfTest), data = techcheck_no_na) +
+  geom_boxplot()+
+  scale_fill_manual(values = cbbPalette)+
+  theme_minimal()+
+  theme(text = element_text(size = 20))   
+ggsave("210609_TechCheck_boxplot.png")
+```
+
+## Gender difs
+
+```{r}
+techcheck_gender_boxplot <- ggplot(aes(y = TotalScore, x = Gender, fill = Gender), data = techcheck_no_na) +
+  geom_boxplot()+
+  theme_minimal()+
+  theme(text = element_text(size = 20))+
+  ylab ("TechCheck TotalScore")
+ggsave("210609_TechCheck_gender_boxplot.png")
+```
+
+
+# Analysis
+
+## Descriptives
+
+```{r}
+min_max_mean_sd(techcheck$TotalScore[techcheck$Grade=="Kindergarten"])
+min_max_mean_sd(techcheck$TotalScore[techcheck$Grade=="FirstGrade"])
+min_max_mean_sd(techcheck$TotalScore[techcheck$Grade=="SecondGrade"])
+```
+
+```{r}
+min_max_mean_sd(techcheck_wide$ChangeScore[techcheck_wide$Grade=="Kindergarten"])
+min_max_mean_sd(techcheck_wide$ChangeScore[techcheck_wide$Grade=="FirstGrade"])
+min_max_mean_sd(techcheck_wide$ChangeScore[techcheck_wide$Grade=="SecondGrade"])
+```
+

@@ -1,0 +1,279 @@
+---
+title: "CAL ScratchJr pilots 2021 - Standardized Test Scores"
+output: html_notebook
+---
+
+# Preliminaries
+
+
+```{r}
+checkpoint::checkpoint("2021-06-10")
+```
+
+## Read data
+```{r}
+school08_fall <- read.csv("210606_School08_fall_assessment_scores.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+school08_spring <- read.csv("210606_School08_spring_assessment_scores.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+school08_winter <- read.csv("210606_School08_winter_assessment_scores.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+school07_reading <-  read.csv("210608_School07_ReadingScores_2nd.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+school07_math <-  read.csv("210608_School07_MathScores_2nd.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+school07_1st_reading <-  read.csv("School07_ReadingScores_1st.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+school07_1st_math <-  read.csv("School07_MathScores_1st.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+```
+
+## Modify variables
+
+```{r}
+school08_fall$Student_ID <- as.factor(as.character(school08_fall$Student_ID))
+school08_spring$Student_ID <- as.factor(as.character(school08_spring$Student_ID))
+school08_winter$Student_ID <- as.factor(as.character(school08_winter$Student_ID))
+school07_reading$StudentID <- as.factor(as.character(school07_reading$StudentID))
+school07_math$StudentID <- as.factor(as.character(school07_math$StudentID))
+school07_1st_reading$StudentID <- as.factor(as.character(school07_1st_reading$StudentID))
+school07_1st_math$StudentID <- as.factor(as.character(school07_1st_math$StudentID))
+school07_reading$Grade <- "SecondGrade"
+school07_math$Grade <- "SecondGrade"
+school07_1st_reading$Grade <- "FirstGrade"
+school07_1st_math$Grade <- "FirstGrade"
+school07_1st_reading$FallScore <- as.numeric(as.character(school07_1st_reading$FallScore))
+school07_1st_math$FallScore <- as.numeric(as.character(school07_1st_math$FallScore))
+school07_reading$TestDate  <- lubridate::mdy(school07_reading$TestDate) #using lubridate package
+school07_math$TestDate  <- lubridate::mdy(school07_math$TestDate) 
+school07_reading$TimeOfTest <- ifelse (school07_reading$TestDate < "2021-01-01", "Pre-Curriculum", "Post-Curriculum")
+school07_math$TimeOfTest <- ifelse (school07_math$TestDate < "2021-01-01", "Pre-Curriculum", "Post-Curriculum")
+school07_math$TimeOfTest <- factor(school07_math$TimeOfTest, levels = c("Pre-Curriculum", "Post-Curriculum"))
+school07_reading$TimeOfTest <- factor(school07_reading$TimeOfTest, levels = c("Pre-Curriculum", "Post-Curriculum"))
+```
+
+
+## Make additional dataframes
+
+### Separate lit and math
+
+```{r}
+school08_fall_literacy <- subset(school08_fall, Assessment.Name == "Growth: Reading K-2 AR 2016")
+school08_fall_math <- subset(school08_fall, Assessment.Name == "Growth: Math K-2 AR 2016")
+school08_spring_literacy <- subset(school08_spring, Assessment.Name == "Growth: Reading K-2 AR 2016")
+school08_spring_math <- subset(school08_spring, Assessment.Name == "Growth: Math K-2 AR 2016")
+school08_winter_literacy <- subset(school08_winter, Assessment.Name == "Growth: Reading K-2 AR 2016")
+school08_winter_math <- subset(school08_winter, Assessment.Name == "Growth: Math K-2 AR 2016")
+```
+
+
+### Make long df
+
+#### Literacy
+
+```{r}
+school08_fall_literacy_small <- school08_fall_literacy %>% dplyr::select(Student_ID, Grade, Gender, School_ID, Teacher_ID, Term = Term.Tested, AssessmentName = Assessment.Name, RITScore = Test.RIT.Score, LitInformational = Language.Arts..Literature.and.Informational)
+school08_winter_literacy_small <- school08_winter_literacy %>% dplyr::select(Student_ID, Grade, Gender, School_ID, Teacher_ID, Term = Term.Tested, AssessmentName = Assessment.Name, RITScore = Test.RIT.Score, LitInformational = Language.Arts..Literature.and.Informational)
+school08_spring_literacy_small <- school08_spring_literacy %>% dplyr::select(Student_ID, Grade, Gender, School_ID, Teacher_ID, Term = Term.Tested, AssessmentName = Assessment.Name, RITScore = Test.RIT.Score, LitInformational = Language.Arts..Literature.and.Informational)
+school08_literacy_long <- rbind(school08_fall_literacy_small, school08_winter_literacy_small)
+school08_literacy_long <- rbind(school08_literacy_long, school08_spring_literacy_small)
+school08_literacy_long$Term <- as.factor(as.character(school08_literacy_long$Term))
+school08_math_long$Term <- as.factor(as.character(school08_math_long$Term))
+school07_1st_reading_long <- school07_1st_reading %>% pivot_longer(cols = c(FallScore, WinterScore, SpringScore), names_to = "TimeOfTest", values_to = "Score")
+school07_1st_reading_long$TimeOfTest  <- as.factor(as.character(school07_1st_reading_long$TimeOfTest))
+school07_1st_reading_long$TimeOfTest <- recode(school07_1st_reading_long$TimeOfTest, 
+"FallScore" = "Fall", "WinterScore" = "Winter", "SpringScore" = "Spring")
+```
+
+
+#### Math
+
+```{r}
+school08_fall_math_small <- school08_fall_math %>% dplyr::select(Student_ID, Grade, Gender, School_ID, Teacher_ID, Term = Term.Tested, AssessmentName = Assessment.Name, RITScore = Test.RIT.Score, NumbersOperations = Mathematics..Number.and.Operations)
+
+school08_winter_math_small <- school08_winter_math %>% dplyr::select(Student_ID, Grade, Gender, School_ID, Teacher_ID, Term = Term.Tested, AssessmentName = Assessment.Name, RITScore = Test.RIT.Score, NumbersOperations = Mathematics..Number.and.Operations)
+
+school08_spring_math_small <- school08_spring_math %>% dplyr::select(Student_ID, Grade, Gender, School_ID, Teacher_ID, Term = Term.Tested, AssessmentName = Assessment.Name, RITScore = Test.RIT.Score, NumbersOperations = Mathematics..Number.and.Operations)
+
+school08_math_long <- rbind(school08_fall_math_small, school08_winter_math_small)
+school08_math_long <- rbind(school08_math_long, school08_spring_math_small)
+school07_1st_math_long <- school07_1st_math %>% pivot_longer(cols = c(FallScore, WinterScore, SpringScore), names_to = "TimeOfTest", values_to = "Score")
+school07_1st_math_long$TimeOfTest <- recode(school07_1st_math_long$TimeOfTest, 
+"FallScore" = "Fall", "WinterScore" = "Winter", "SpringScore" = "Spring")
+school07_1st_math_long$TimeOfTest <- factor(school07_1st_math_long$TimeOfTest, levels = c("Fall", "Winter", "Spring"))
+```
+
+
+### Make wide df 
+
+#### Literacy
+```{r}
+school08_literacy <- right_join (school08_fall_literacy,school08_winter_literacy, by = "Student_ID") 
+school08_literacy <- school08_literacy %>% dplyr::select(Student_ID, Grade = Grade.x, Gender = Gender.x, School_ID = School_ID.x, Teacher_ID = Teacher_ID.x, AssessmentName = Assessment.Name.x, LitInformationalFall = Language.Arts..Literature.and.Informational.x, RITFall = Test.RIT.Score.x,  LitInformationalWinter = Language.Arts..Literature.and.Informational.y, RITWinter = Test.RIT.Score.y) 
+school08_literacy <- left_join (school08_literacy, school08_spring_literacy, by = "Student_ID")
+school08_literacy <- school08_literacy %>% dplyr::select(Student_ID, Grade = Grade.x, Gender = Gender.x, School_ID = School_ID.x, Teacher_ID = Teacher_ID.x, AssessmentName,LitInformationalFall, RITFall, LitInformationalWinter, RITWinter, RITSpring = Test.RIT.Score, LitInformationalSpring = Language.Arts..Literature.and.Informational) 
+```
+```{r}
+school07_reading_pre <- subset(school07_reading, TimeOfTest == "Pre-Curriculum") %>% dplyr::rename(PreCurriculum = SS) %>% dplyr::select(-TimeOfTest, -SGP, -PR, -PR, -NCE, -GE, -TestDate) 
+school07_reading_post <- subset(school07_reading, TimeOfTest == "Post-Curriculum") %>% dplyr::rename(PostCurriculum = SS) %>% dplyr::select(StudentID, PostCurriculum)
+school07_reading_wide <- left_join(school07_reading_post, school07_reading_pre, by = "StudentID")
+```
+
+
+#### Math
+```{r}
+school08_math <- right_join (school08_fall_math,school08_winter_math, by = "Student_ID") 
+school08_math <- school08_math %>% dplyr::select(Student_ID, Grade = Grade.x, Gender = Gender.x, School_ID = School_ID.x, Teacher_ID = Teacher_ID.x, AssessmentName = Assessment.Name.x, RITFall = Test.RIT.Score.x,RITWinter = Test.RIT.Score.y) 
+school08_math <- left_join (school08_math, school08_spring_math, by = "Student_ID")
+school08_math <- school08_math %>% dplyr::select(Student_ID, Grade = Grade.x, Gender = Gender.x, School_ID = School_ID.x, Teacher_ID = Teacher_ID.x, AssessmentName, RITFall, RITWinter, RITSpring = Test.RIT.Score) 
+```
+# Visualization
+
+## Literacy 
+
+### Raincloud
+```{r}
+
+w = 6
+h = 4
+
+y_lim_min = 120
+y_lim_max = 200
+
+before = school08_literacy$RITWinter
+after = school08_literacy$RITSpring
+n <- length(before) 
+d <- data.frame(y = c(before, after),
+               x = rep(c(1,2), each=n),
+               id = school08_literacy$Student_ID)
+set.seed(321)
+d$xj <- jitter(d$x, amount = .09) 
+```
+
+```{r}
+School08_literacy_RIT_raincloud_prepost <- ggplot(data = d, aes(y = y)) +
+  
+   geom_point(data = d %>% filter(x =="1"), aes(x = xj), color = 'dodgerblue', size = 1.5, 
+              alpha = .6) +
+   geom_point(data = d %>% filter(x =="2"), aes(x = xj), color = 'darkorange', size = 1.5, 
+              alpha = .6) +
+   geom_line(aes(x = xj, group = id), color = 'lightgray', alpha = .3) +
+  
+   geom_half_boxplot(
+     data = d %>% filter(x=="1"), aes(x=x, y = y), position = position_nudge(x = -.25), 
+     side = "r",outlier.shape = NA, center = TRUE, errorbar.draw = FALSE, width = .2, 
+     fill = 'dodgerblue') +
+   
+   geom_half_boxplot(
+     data = d %>% filter(x=="2"), aes(x=x, y = y), position = position_nudge(x = .15), 
+     side = "r",outlier.shape = NA, center = TRUE, errorbar.draw = FALSE, width = .2, 
+     fill = 'darkorange') +
+  
+   geom_half_violin(
+     data = d %>% filter(x=="1"),aes(x = x, y = y), position = position_nudge(x = -.3), 
+     side = "l", fill = 'dodgerblue') +
+ 
+   geom_half_violin(
+     data = d %>% filter(x=="2"),aes(x = x, y = y), position = position_nudge(x = .3), 
+     side = "r", fill = "darkorange") +
+  
+   scale_x_continuous(breaks=c(1,2), labels=c("Pre", "Post"), limits=c(0, 3)) +
+   xlab("Time point") + ylab("Value") +
+   ggtitle('MAP Literacy RIT pre and post score School 08') +
+   theme_classic()+
+   coord_cartesian(ylim=c(y_lim_min, y_lim_max))
+
+School08_literacy_RIT_raincloud_prepost
+```
+### Barchart
+
+```{r}
+school08_literacy_barplot <- ggplot(school08_literacy_long, aes(x = Term, y =  RITScore, fill = Term)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_minimal()+
+   scale_fill_manual(values = cbbPalette)
+school08_literacy_barplot
+```
+```{r}
+school07_reading_barplot <- ggplot(school07_reading, aes(x = TimeOfTest, y =  SS, fill = TimeOfTest)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_minimal()+
+scale_fill_manual(values = cbbPalette)
+school07_reading_barplot
+ggsave("210609_School07_literacy_bar.png")
+```
+
+### Boxplot
+
+```{r}
+school08_literacy_boxplot <- ggplot(school08_literacy_long, aes(x = Term, y =  RITScore, fill = Term)) +
+  geom_boxplot()+
+  theme_minimal()+
+scale_fill_manual(values = cbbPalette)+
+   theme(legend.position = "none")
+school08_literacy_boxplot+
+   theme(text = element_text(size = 20))
+ggsave("210609_School08_Literacy_scores.png")
+```
+```{r}
+school07_literacy_boxplot <- ggplot(school07_reading,  aes(x = TimeOfTest, y =  SS, fill = TimeOfTest)) +
+  geom_boxplot()+
+  theme_minimal()+
+scale_fill_manual(values = cbbPalette)+
+   theme(legend.position = "none")+
+   theme(text = element_text(size = 20))+
+   ylab("STAR Reading Scaled Score")+
+   ylim(0,750)
+ggsave("210609_School07_reading_scores.png")
+school07_1st_literacy_boxplot <- ggplot(school07_1st_reading_long,  aes(x = TimeOfTest, y = Score, fill = TimeOfTest)) +
+  geom_boxplot()+
+  theme_minimal()+
+scale_fill_manual(values = cbbPalette)+
+   theme(legend.position = "none")+
+   theme(text = element_text(size = 20))+
+   ylab("FastBridge Reading Score")
+ggsave("210609_School07_1st_reading_scores.png")
+```
+## Math
+
+### Barchart
+
+```{r}
+school08_math_barplot <- ggplot(school08_math_long, aes(x = Term, y =  RITScore, fill = Term)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_minimal()+
+   theme(text = element_text(size = 20))
+school08_math_barplot
+```
+
+```{r}
+school07_math_barplot <- ggplot(school07_math, aes(x = TimeOfTest, y =  SS, fill = TimeOfTest)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_minimal()+
+   theme(text = element_text(size = 20))
+school07_math_barplot
+```
+### Boxplot
+
+```{r}
+school08_math_boxplot <- ggplot(school08_math_long, aes(x = Term, y =  RITScore, fill = Term)) +
+  geom_boxplot()+
+  theme_minimal()+
+scale_fill_manual(values = cbbPalette)+
+   theme(legend.position = "none")+
+   theme(text = element_text(size = 20))
+ggsave("210609_School08_math_scores.png")
+```
+```{r}
+school07_math_boxplot <- ggplot(school07_math,  aes(x = TimeOfTest, y =  SS, fill = TimeOfTest)) +
+  geom_boxplot()+
+  theme_minimal()+
+scale_fill_manual(values = cbbPalette)+
+   theme(legend.position = "none")+
+   theme(text = element_text(size = 20))+
+   ylab("STAR Math Scaled Score")+
+   ylim(0,700)
+ggsave("210609_School07_math_scores.png")
+school07_1st_math_boxplot <- ggplot(school07_1st_math_long,  aes(x = TimeOfTest, y = Score, fill = TimeOfTest)) +
+  geom_boxplot()+
+  theme_minimal()+
+scale_fill_manual(values = cbbPalette)+
+   theme(legend.position = "none")+
+   theme(text = element_text(size = 20))+
+   ylab("FastBridge Math Score")
+ggsave("210609_School07_1st_math_scores.png")
+```
+

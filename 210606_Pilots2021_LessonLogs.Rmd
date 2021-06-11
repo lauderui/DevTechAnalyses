@@ -1,0 +1,302 @@
+---
+title: "Minnesota Lesson Logs"
+output: html_notebook
+---
+
+# Preliminaries
+
+```{r}
+checkpoint::checkpoint("2021-06-10")
+```
+
+## Reading data
+```{r}
+lesson_logs_k <- read.csv("210606_LessonLogs_Kindergarten.csv", header = T, na.strings = c("", " "), stringsAsFactors = F, strip.white = T) %>% slice(-1:-3) 
+lesson_logs_first <- read.csv("210606_LessonLogs_FirstGrade.csv", header = T, na.strings = c("", " "), stringsAsFactors = F, strip.white = T) %>% slice(-1:-3) 
+lesson_logs_second <- read.csv("210606_LessonLogs_SecondGrade.csv", header = T, na.strings = c("", " "), stringsAsFactors = F, strip.white = T) %>% slice(-1:-3) 
+```
+
+## Constants & vectors
+
+```{r}
+LessonList <- c("L01", "L02", "L03", "L04", "L05", "L06", "L07", "L08", "L09", "L10", "L11", "L12", "L13", "L14", "L15", "L16", "L17", "L18", "L19", "L20", "L21", "L22", "L23", "L24")
+```
+
+## Functions
+
+### Substrings
+```{r}
+right_side = function(x,n){
+  substring(x,nchar(x)-n+1)
+}
+```
+
+
+### Min, max, mean, SD
+
+```{r}
+min_max_mean_sd <- function(variable){
+  
+  min = round(min(variable),1)
+  max = round(max(variable),1)
+  mean = round(mean(variable),1)
+  sd = round(sd(variable),1)
+  
+  my_list = list(min, max, mean, sd) 
+  
+  return(my_list)
+}
+```
+
+
+
+
+## Modifying & selecting variables
+
+```{r}
+lesson_logs_k$Grade <- "Kindergarten"
+lesson_logs_first$Grade <- "FirstGrade"
+lesson_logs_second$Grade <- "SecondGrade"
+```
+
+
+```{r}
+lesson_logs_k <- lesson_logs_k %>% dplyr::select(-c(Lesson1:Lesson24))
+lesson_logs_first <- lesson_logs_first %>% dplyr::select(-c(Lesson1:Lesson24)) 
+lesson_logs_second <- lesson_logs_second %>% dplyr::select(-c(Lesson1:Lesson24)) 
+```
+
+```{r}
+lesson_logs_k <- lesson_logs_k %>% dplyr::select(-EndDate:-ResponseId) %>% dplyr::select(-RecipientFirstName:-UserLanguage)
+lesson_logs_first <- lesson_logs_first %>% dplyr::select(-EndDate:-ResponseId) %>% dplyr::select(-RecipientFirstName:-UserLanguage)
+lesson_logs_second <- lesson_logs_second %>% dplyr::select(-EndDate:-ResponseId) %>% dplyr::select(-RecipientFirstName:-UserLanguage)
+lesson_logs_k <- lesson_logs_k %>% dplyr::select(!ends_with("Comments")) %>% dplyr::select(!contains("Files_Id")) %>% dplyr::select(!contains("Files_Type")) %>% dplyr::select(!contains("Files_Size"))  %>% dplyr::select(!contains("Files_Name"))
+lesson_logs_first <- lesson_logs_first %>% dplyr::select(!ends_with("Comments")) %>% dplyr::select(!contains("Files_Id")) %>% dplyr::select(!contains("Files_Type")) %>% dplyr::select(!contains("Files_Size"))  %>% dplyr::select(!contains("Files_Name"))
+lesson_logs_second <- lesson_logs_second %>% dplyr::select(!ends_with("Comments")) %>% dplyr::select(!contains("Files_Id")) %>% dplyr::select(!contains("Files_Type")) %>% dplyr::select(!contains("Files_Size"))  %>% dplyr::select(!contains("Files_Name"))
+```
+
+
+
+
+
+## Creating different dataframes
+
+### Prep time
+```{r}
+lesson_logs_k_preptime <-lesson_logs_k %>% dplyr::select(ends_with("PrepTime_1"))
+names(lesson_logs_k_preptime) <- LessonList
+lesson_logs_k_preptime <- cbind(lesson_logs_k_preptime, Teacher = lesson_logs_k$RecipientLastName)
+lesson_logs_k_preptime <- lesson_logs_k_preptime %>% pivot_longer(!Teacher, names_to = "Lesson", values_to = "PrepTime") %>% drop_na()
+lesson_logs_k_preptime$PrepTime <- as.numeric(as.character(lesson_logs_k_preptime$PrepTime))
+lesson_logs_first_preptime <-lesson_logs_first %>% dplyr::select(ends_with("PrepTime_1"))
+names(lesson_logs_first_preptime) <- LessonList
+lesson_logs_first_preptime <- cbind(lesson_logs_first_preptime, Teacher = lesson_logs_first$RecipientLastName)
+lesson_logs_first_preptime <- lesson_logs_first_preptime %>% pivot_longer(!Teacher, names_to = "Lesson", values_to = "PrepTime") %>% drop_na()
+lesson_logs_first_preptime$PrepTime <- as.numeric(as.character(lesson_logs_first_preptime$PrepTime))
+lesson_logs_second_preptime <-lesson_logs_second %>% dplyr::select(ends_with("PrepTime_1"))
+names(lesson_logs_second_preptime) <- LessonList
+lesson_logs_second_preptime <- cbind(lesson_logs_second_preptime, Teacher = lesson_logs_second$RecipientLastName)
+lesson_logs_second_preptime <- lesson_logs_second_preptime %>% pivot_longer(!Teacher, names_to = "Lesson", values_to = "PrepTime") %>% drop_na()
+lesson_logs_second_preptime$PrepTime <- as.numeric(as.character(lesson_logs_second_preptime$PrepTime))
+```
+
+### Teaching time
+```{r}
+lesson_logs_k_teachingtime <-lesson_logs_k %>% dplyr::select(ends_with("TeachingTime_1"))
+names(lesson_logs_k_teachingtime ) <- LessonList
+lesson_logs_k_teachingtime  <- cbind(lesson_logs_k_teachingtime , Teacher = lesson_logs_k$RecipientLastName)
+lesson_logs_k_teachingtime  <- lesson_logs_k_teachingtime  %>% pivot_longer(!Teacher, names_to = "Lesson", values_to = "TeachingTime") %>% drop_na()
+lesson_logs_k_teachingtime$TeachingTime <- as.numeric(as.character(lesson_logs_k_teachingtime$TeachingTime))
+lesson_logs_first_teachingtime <-lesson_logs_first %>% dplyr::select(ends_with("TeachingTime_1"))
+names(lesson_logs_first_teachingtime ) <- LessonList
+lesson_logs_first_teachingtime  <- cbind(lesson_logs_first_teachingtime , Teacher = lesson_logs_first$RecipientLastName)
+lesson_logs_first_teachingtime  <- lesson_logs_first_teachingtime  %>% pivot_longer(!Teacher, names_to = "Lesson", values_to = "TeachingTime") %>% drop_na()
+lesson_logs_first_teachingtime$TeachingTime <- as.numeric(as.character(lesson_logs_first_teachingtime$TeachingTime))
+lesson_logs_second_teachingtime <-lesson_logs_second %>% dplyr::select(ends_with("TeachingTime_1"))
+names(lesson_logs_second_teachingtime ) <- LessonList
+lesson_logs_second_teachingtime  <- cbind(lesson_logs_second_teachingtime , Teacher = lesson_logs_second$RecipientLastName)
+lesson_logs_second_teachingtime  <- lesson_logs_second_teachingtime  %>% pivot_longer(!Teacher, names_to = "Lesson", values_to = "TeachingTime") %>% drop_na()
+lesson_logs_second_teachingtime$TeachingTime <- as.numeric(as.character(lesson_logs_second_teachingtime$TeachingTime))
+```
+
+### Combining dataframes
+
+```{r}
+prep_and_teaching_time_k <- cbind(lesson_logs_k_preptime, TeachingTime = lesson_logs_k_teachingtime$TeachingTime)
+prep_and_teaching_time_k$Lesson <- factor(prep_and_teaching_time_k$Lesson , levels = LessonList)
+prep_and_teaching_time_first <- cbind(lesson_logs_first_preptime, TeachingTime = lesson_logs_first_teachingtime$TeachingTime)
+prep_and_teaching_time_first$Lesson <- factor(prep_and_teaching_time_first$Lesson , levels = LessonList)
+lesson_logs_second_teachingtime[65,] <- NA
+prep_and_teaching_time_second <- cbind(lesson_logs_second_preptime, TeachingTime = lesson_logs_second_teachingtime$TeachingTime)
+prep_and_teaching_time_second$Lesson <- factor(prep_and_teaching_time_second$Lesson , levels = LessonList)
+```
+
+### Activities
+
+#### By Lessons
+
+```{r}
+lesson_logs_k_activities <- lesson_logs_k %>% dplyr::select (Lesson = WhichLesson, contains("Implementation")) %>%  gather(key = Activity, value = Implementation, contains("Implementation")) %>% drop_na()
+lesson_logs_k_activities$Implementation <- as.factor(lesson_logs_k_activities$Implementation) 
+lesson_logs_first_activities <- lesson_logs_first %>% dplyr::select (Lesson = G1WhichLesson, contains("Implementation")) %>%  gather(key = Activity, value = Implementation, contains("Implementation")) %>% drop_na()
+lesson_logs_first_activities$Implementation <- as.factor(lesson_logs_first_activities$Implementation)
+lesson_logs_second_activities <- lesson_logs_second %>% dplyr::select (Lesson = WhichLesson, contains("Implementation")) %>%  gather(key = Activity, value = Implementation, contains("Implementation")) %>% drop_na()
+lesson_logs_second_activities$Implementation <- as.factor(lesson_logs_second_activities$Implementation)
+lesson_logs_k_activities$Implementation <- factor(lesson_logs_k_activities$Implementation, levels = c("AsDescribed", "WithModifications", "NotImplemented"))
+lesson_logs_first_activities$Implementation <- factor(lesson_logs_first_activities$Implementation, levels = c("AsDescribed", "WithModifications", "NotImplemented"))
+lesson_logs_second_activities$Implementation <- factor(lesson_logs_second_activities$Implementation, levels = c("AsDescribed", "WithModifications", "NotImplemented"))
+lesson_logs_k_activities$Activity <- right_side(lesson_logs_k_activities$Activity,1) 
+lesson_logs_first_activities$Activity <- right_side(lesson_logs_first_activities$Activity,1) 
+lesson_logs_second_activities$Activity <- right_side(lesson_logs_second_activities$Activity,1)
+```
+
+#### By Teachers
+
+```{r}
+lesson_logs_k_activities_teachers <- lesson_logs_k %>% dplyr::select (Lesson = WhichLesson, contains("Implementation"), RecipientLastName, Grade) %>%  gather(key = Activity, value = Implementation, contains("Implementation")) %>% drop_na()
+lesson_logs_k_activities_teachers$Implementation <- as.factor(lesson_logs_k_activities_teachers$Implementation) lesson_logs_first_activities_teachers <- lesson_logs_first %>% dplyr::select (Lesson = G1WhichLesson, contains("Implementation"), RecipientLastName, Grade) %>%  gather(key = Activity, value = Implementation, contains("Implementation")) %>% drop_na()
+lesson_logs_first_activities_teachers$Implementation <- as.factor(lesson_logs_first_activities_teachers$Implementation) #make sure it's a factor
+lesson_logs_second_activities_teachers <- lesson_logs_second %>% dplyr::select (Lesson = WhichLesson, contains("Implementation"), RecipientLastName, Grade) %>%  gather(key = Activity, value = Implementation, contains("Implementation")) %>% drop_na()
+lesson_logs_second_activities_teachers$Implementation <- as.factor(lesson_logs_second_activities_teachers$Implementation) #make sure it's a factor
+lesson_logs_activities_teachers <- rbind(lesson_logs_k_activities_teachers, lesson_logs_first_activities_teachers, lesson_logs_second_activities_teachers)
+lesson_logs_activities_teachers$Activity <- right_side(lesson_logs_activities_teachers$Activity,1)
+```
+
+# Visualizations & Descriptives
+
+## Preparation time
+
+### Kindergarten
+
+```{r}
+preptime_k_bar <- ggplot(prep_and_teaching_time_k, aes(x = Lesson, y =  PrepTime)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_bw()
+preptime_k_bar
+min_max_mean_sd(prep_and_teaching_time_k$PrepTime)
+```
+
+### First Grade
+
+```{r}
+preptime_first_bar <- ggplot(prep_and_teaching_time_first, aes(x = Lesson, y =  PrepTime)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_bw()
+preptime_first_bar
+min_max_mean_sd(prep_and_teaching_time_first$PrepTime)
+```
+
+### Second Grade
+
+```{r}
+preptime_second_bar <- ggplot(prep_and_teaching_time_second, aes(x = Lesson, y =  PrepTime)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_bw()
+preptime_second_bar
+min_max_mean_sd(prep_and_teaching_time_second$PrepTime)
+```
+
+## Teaching time
+
+### Kindergarten
+
+```{r}
+teachingtime_k_bar <- ggplot(prep_and_teaching_time_k, aes(x = Lesson, y =  TeachingTime)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_bw()
+teachingtime_k_bar
+min_max_mean_sd(prep_and_teaching_time_k$TeachingTime)
+```
+
+### First Grade
+```{r}
+teachingtime_first_bar <- ggplot(prep_and_teaching_time_first, aes(x = Lesson, y =  TeachingTime)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_bw()
+teachingtime_first_bar
+```
+
+```{r}
+min_max_mean_sd(prep_and_teaching_time_first$TeachingTime)
+```
+
+### Second Grade
+
+```{r}
+teachingtime_second_bar <- ggplot(prep_and_teaching_time_second, aes(x = Lesson, y =  TeachingTime)) +
+  geom_bar(stat = "summary", fun.y = "mean")+
+  theme_bw()
+teachingtime_second_bar
+min_max_mean_sd(prep_and_teaching_time_secibd$TeachingTime)
+```
+
+
+## Activities
+
+```{r}
+activity_implementation <- lesson_logs_activities_teachers %>% group_by(Grade,Lesson,Activity) %>% dplyr::mutate(NumberOfEntries=n()) %>% group_by(Grade, Lesson, Activity, Implementation) %>% dplyr::mutate(TypeHowOften=n()) %>% dplyr::mutate(Proportion = TypeHowOften/NumberOfEntries) %>% group_by(Grade, Lesson, Activity, Implementation, Proportion) %>% unique %>% as.data.frame()
+activity_implementation$Activity <- as.factor(activity_implementation$Activity)
+activity_implementation <- activity_implementation %>% dplyr::select(-RecipientLastName, -NumberOfEntries, -TypeHowOften) %>% unique()
+activity_implementation$Implementation <- factor(activity_implementation$Implementation, levels = c("AsDescribed", "WithModifications", "NotImplemented"))
+```
+
+```{r}
+activity_implementation_table <- table (lesson_logs_activities$Activity, lesson_logs_activities$Implementation)
+```
+
+### Kindergarten
+```{r}
+activities_bar_k <- ggplot(activity_implementation[activity_implementation$Grade=="Kindergarten",], aes(Activity, Proportion, fill = Implementation)) +
+          geom_bar(stat = "identity", position = "stack") + 
+          theme_bw()+
+          facet_wrap(~Lesson, ncol = 4)
+activities_bar_k
+```
+
+### First Grade
+```{r}
+activities_bar_first <- ggplot(activity_implementation[activity_implementation$Grade=="FirstGrade",], aes(Activity, Proportion, fill = Implementation)) +
+          geom_bar(stat = "identity", position = "stack") + 
+          theme_bw()+
+          facet_wrap(~Lesson, ncol = 4)
+activities_bar_first
+activity_implementation_first <- lesson_logs_activities_teachers %>%  filter(Grade=="FirstGrade") %>% dplyr::select(Implementation) %>% mutate(OverallN = n()) %>%
+   group_by(Implementation)  %>%
+  mutate(N = n()) %>% ungroup() %>% unique() %>%
+  mutate(Proportion =  N/OverallN)
+activity_implementation_first 
+```
+
+### Second Grade
+```{r}
+activities_bar_second <- ggplot(activity_implementation[activity_implementation$Grade=="SecondGrade",], aes(Activity, Proportion, fill = Implementation)) +
+          geom_bar(stat = "identity", position = "stack") + 
+          theme_bw()+
+          facet_wrap(~Lesson, ncol = 4)
+activities_bar_second
+activity_implementation_second <- lesson_logs_activities_teachers %>%  filter(Grade=="SecondGrade") %>% dplyr::select(Implementation) %>% mutate(OverallN = n()) %>%
+   group_by(Implementation)  %>%
+  mutate(N = n()) %>% ungroup() %>% unique() %>%
+  mutate(Proportion =  N/OverallN)
+activity_implementation_second
+```
+
+# FOI per teacher
+
+```{r}
+activity_implementation_teachers <- lesson_logs_activities_teachers %>% dplyr::select(RecipientLastName, Implementation) %>% group_by(RecipientLastName) %>% mutate(OverallN = n()) %>%
+   group_by(RecipientLastName, Implementation)  %>%
+  mutate(N = n()) %>% ungroup() %>% unique() %>%
+  mutate(Proportion =  N/OverallN) %>% arrange(RecipientLastName)
+activity_implementation_teachers$Implementation <- factor(activity_implementation_teachers$Implementation, levels = c("AsDescribed", "WithModifications", "NotImplemented"))
+activity_implementation_teachers 
+FOI_teachers <- activity_implementation_teachers %>% filter(!Implementation=="NotImplemented") %>% group_by(RecipientLastName) %>% dplyr::select(RecipientLastName, Implementation, Proportion) %>% mutate(Implemented = sum(Proportion)) %>% select (RecipientLastName, Implemented) %>% unique()
+write.csv(FOI_teachers, "210606_FOI_Teachers.csv", row.names = F)
+activities_bar_teachers <- ggplot(activity_implementation_teachers, aes(RecipientLastName, Proportion, fill = Implementation)) +
+          geom_bar(stat = "identity", position = "stack") + 
+          theme_bw()
+activities_bar_teachers
+```
+
+
+

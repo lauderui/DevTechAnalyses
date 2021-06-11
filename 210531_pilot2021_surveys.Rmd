@@ -1,0 +1,623 @@
+---
+title: "BBE teacher surveys"
+output: html_notebook
+---
+
+# Preliminaries
+## About the data
+
+
+The data are the from teachers who participated in our CAL ScracthJr pilots in 2021. Importantly, not all teachers completed all surveys, so the data is spotty. These are the four surveys that were administered:
+- pretraining survey
+- posttraining survey
+- midpoint implementation survey
+- post-implementation survey
+
+## To ensure reproducibility we use checkpoint instead of loading libraries.
+## See https://cran.r-project.org/web/packages/checkpoint/vignettes/checkpoint.html
+```{r}
+checkpoint::checkpoint("2021-06-10")
+```
+
+
+## Read in data
+
+```{r}
+all_pre <- read.csv("All_schools_pretraining.csv", header = T, na.strings = c("", " "), stringsAsFactors = F, strip.white = T)
+all_post <- read.csv("All_schools_posttraining.csv", header = T, na.strings = c("", " "), stringsAsFactors = F, strip.white = T)
+all_mid <- read.csv("All_schools_midpoint.csv", header = T, na.strings = c("", " "), stringsAsFactors = F, strip.white = T)
+all_postimplementation <- read.csv("All_schools_postimplementation.csv", header = T, na.strings = c("", " "), stringsAsFactors = F, strip.white = T)
+```
+
+```{r}
+all_pre <- all_pre %>% slice(-1:-2)
+all_post <- all_post %>% slice(-1:-2)
+all_mid  <- all_mid  %>% slice(-1:-2)
+all_postimplementation  <- all_postimplementation %>% slice(-1:-2)
+```
+
+
+
+```{r}
+pre <- all_pre %>% dplyr::select(RecipientLastName, BasicConcepts:TeachScratchJr) 
+post <- all_post %>% dplyr::select(RecipientLastName, CALExcited:TeachScratchJr) 
+mid  <- all_mid %>% dplyr::select(RecipientLastName, AssistanceNeededCAL:EnoughTimeYN) 
+postimplementation  <- all_postimplementation %>% dplyr::select(RecipientLastName, CALRatingOverall:TeachScratchJr) 
+```
+
+```{r}
+pre$Time <- "pre-PD"
+mid$Time <- "mid"
+post$Time <- "post-PD"
+postimplementation$Time <- "post-implementation"
+```
+
+
+```{r}
+#surveys <- dplyr::inner_join(pre, post, mid, postimplementation, by="RecipientLastName")
+```
+
+## Palettes
+
+### Colorblind-friendly palette
+
+```{r colour_palettes, include=FALSE}
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# including darker grey:
+cbbPalette <- c("#999999","#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7","#5C5C5C")
+```
+
+### Red-green palette for Likert
+
+```{r}
+myColorScaleAgree <- c("red", "orange", "yellow", "lightgreen", "forestgreen")
+myColorScaleImprove <- c("red", "orange", "yellow", "lightgreen", "forestgreen")
+
+#names(myColorScale) <- levels(df$group)
+
+#colScale <- scale_colour_manual(name = "group",values = myColors)
+```
+
+
+
+## Functions
+
+```{r}
+min_max_mean_sd <- function(variable){
+  
+  min = round(min(variable, na.rm = T),1)
+  max = round(max(variable, na.rm = T),1)
+  mean = round(mean(variable, na.rm = T),1)
+  sd = round(sd(variable, na.rm = T),1)
+  
+  my_list = list(min, max, mean, sd) 
+  
+  return(my_list)
+}
+```
+
+
+
+## Vectors
+
+These are the teachers who taught the curriculum
+```{r}
+FinalTeachers <- c("Gullickson", "Sorenson", "Bents", "Hanna", "Borgerding", "Bradford", "McAllister", "Gross", "Wolf-Johnson", "Tong")
+```
+
+
+
+```{r}
+LikertImprovement <- c("Needs a lot of improvement", "Needs some improvement", "Met my expectations", "Better than expected", "Couldn't be better")
+
+LikertAgree <- c("Strongly disagree", "Disagree", "Neither agree nor disagree", "Agree", "Strongly agree")
+```
+
+# Analyses/visualizations
+
+
+## Pre-PD (demographics)
+
+```{r}
+teacher_demographics <- all_pre %>%  slice(-1:-2) %>%dplyr::select(RecipientLastName, Role:PostsecSTEMYN)
+final_teacher_demographics <- teacher_demographics %>% dplyr::filter(RecipientLastName %in% FinalTeachers)
+```
+
+### Gender
+```{r}
+xtabs(~teacher_demographics$GenderID)
+xtabs(~final_teacher_demographics$GenderID)
+```
+
+### Ethnicity
+```{r}
+xtabs(~teacher_demographics$RaceEthnicity)
+xtabs(~final_teacher_demographics$RaceEthnicity)
+```
+
+
+### Years taught
+
+```{r}
+teacher_demographics$YearsTeaching <- parse_number(teacher_demographics$YearsTeaching)
+final_teacher_demographics$YearsTeaching <- parse_number(final_teacher_demographics$YearsTeaching)
+```
+
+```{r}
+write.csv(final_teacher_demographics, "210606_Teacher_demographics.csv", row.names = F)
+```
+
+
+```{r}
+xtabs(~teacher_demographics$YearsTeaching)
+```
+
+```{r}
+min_max_mean_sd (final_teacher_demographics$YearsTeaching)
+median(final_teacher_demographics$YearsTeaching, na.rm = T)
+```
+
+
+```{r}
+years_teaching_density <- ggplot(data = teacher_demographics, aes(YearsTeaching))+
+  geom_density()
+years_teaching_density
+```
+
+```{r}
+years_teaching_histo <- ggplot(data = final_teacher_demographics, aes(YearsTeaching))+
+  geom_histogram(fill = "lightblue", bins = 20, binwidth = 2)+
+  theme_minimal()+
+  geom_vline(xintercept = 6, color = "red")
+years_teaching_histo
+ggsave("210603_FinalTeacherPilot2021_Experience.png")
+```
+### Grades 
+
+```{r}
+xtabs(~final_teacher_demographics$GradesTaught)
+```
+
+
+### Role
+
+```{r}
+xtabs(~final_teacher_demographics$Role)
+```
+
+
+
+### Coding/ScratchJr Experience
+```{r}
+xtabs(~final_teacher_demographics$ScratchJrExpYN)
+```
+```{r}
+xtabs(~final_teacher_demographics$PreviousCodingYN)
+```
+
+```{r}
+xtabs(~final_teacher_demographics$PreviousCodingYN)
+```
+
+
+## Training feedback
+
+### Confidence
+
+#### Create long df
+
+```{r}
+confidence <- post %>% dplyr::select(RecipientLastName:CALTrustedColleagues) %>% pivot_longer(names_to = "Statement", cols = CALExcited:CALTrustedColleagues) 
+```
+
+```{r}
+confidence$RecipientLastName <- as.factor(as.character(confidence$RecipientLastName))
+```
+
+
+#### Statement levels
+
+
+```{r}
+confidence$Statement <- recode (confidence$Statement, CALExcited= "I am excited to teach the CAL curriculum", CALConfident = "I am confident in my ability to teach the CAL curriculum", ConfidentScratchJr = "I am confident in my ability to teach ScratchJr.", CALEngaging = "I know how to make the CAL curriculum engaging for all students", CALKnowldegeSkills = "I have the knowledge and skills I need to teach the CAL curriculum effectively", CALResources = "I have the curriculum, tools, and resources I need to teach the CAL curriculum effectively", CALAssess = "I know how to formally assess students’ CAL curriculum learning and performance", CALTrustedColleagues = "I have a group of trusted colleagues that help me teach the CAL curriculum effectively")
+```
+
+```{r}
+confidence$Statement <- factor(confidence$Statement, levels = c("I am excited to teach the CAL curriculum", "I am confident in my ability to teach the CAL curriculum", "I am confident in my ability to teach ScratchJr.",  "I know how to make the CAL curriculum engaging for all students", "I have the knowledge and skills I need to teach the CAL curriculum effectively", "I have the curriculum, tools, and resources I need to teach the CAL curriculum effectively", "I know how to formally assess students’ CAL curriculum learning and performance",  "I have a group of trusted colleagues that help me teach the CAL curriculum effectively"))
+```
+
+#### Likert levels
+
+```{r}
+confidence$value <- factor(confidence$value, levels = c("Strongly disagree", "Disagree", "Neither agree nor disagree", "Agree", "Strongly agree"))
+```
+
+
+#### Recode Likert as numeric
+```{r}
+confidence$value_numeric <- recode(confidence$value, "Strongly disagree" = 1, "Disagree" = 2, "Neither agree nor disagree" = 3,  "Agree" = 4, "Strongly agree" = 5) 
+```
+
+
+#### Aggregate score
+
+
+```{r}
+confidence_wide <- confidence %>% dplyr::select(-value) %>% pivot_wider(names_from = "Statement", values_from = "value_numeric") # keeping the string Likert variable "value" would create superfluous additional rows, so it needs to be deselected before converting.
+confidence_wide <- confidence_wide %>% mutate(SumScore = select(., `I am excited to teach the CAL curriculum`:`I have a group of trusted colleagues that help me teach the CAL curriculum effectively`) %>% rowSums(na.rm = TRUE)) %>% dplyr::select(RecipientLastName, SumScore)
+```
+
+#### Plots
+
+```{r}
+names(myColorScaleAgree) <- levels(confidence$value)
+colScaleAgree <- scale_fill_manual(name = "value", values = myColorScaleAgree, drop = FALSE)
+CAL_confidence_plot_numeric <- ggplot(data = confidence, aes(x=Statement,y=value_numeric)) +
+  stat_summary(fun = mean, geom = "bar", na.rm = TRUE)+
+  theme_minimal()+
+  ylim(0,5)+
+  #theme(axis.text.x=element_text(angle =45, vjust = 0.5, hjust = 0.5))+
+  ggtitle("Teachers' confidence")+
+  coord_flip()+
+  theme(text = element_text(size=20))
+  #facet_wrap(~RecipientLastName)
+CAL_confidence_plot_numeric
+ggsave("Teachers_confidence_after_PD_numeric.png", width = 16, height = 6, units = "in")
+CAL_confidence_plot_categories <- ggplot(data = confidence, aes(x=Statement,fill=value)) +
+  geom_bar(position = "fill", stat = "count")+
+  theme_bw()+
+  ylab("Proportion")+
+  coord_flip()+
+  theme(legend.position="bottom")+
+  theme(text = element_text(size=20))+
+  colScaleAgree
+CAL_confidence_plot_categories
+ggsave("Teachers_confidence_after_PD.png", width = 20, height = 6, units = "in")
+```
+
+### Concerns
+
+#### Create long df 
+
+
+```{r}
+concerns <- post %>% dplyr::select(RecipientLastName, WantTeachCAL: WorkingWithOthersCAL) %>% pivot_longer(names_to = "Statement", cols = WantTeachCAL: WorkingWithOthersCAL) 
+concerns$Statement <- recode (concerns$Statement , WantTeachCAL= "Deciding whether I want to teach CAL", AbilityTeachScratch = "My ability to teach ScratchJr", WhatisCAL = "Understanding what the CAL curriculum is", RequiredTeachingCAL = "Understanding what teaching the CAL curriculum requires", SuccessfulCoding = "Finding out what students need to know to be successful at coding",PrepTeachCAL = "Preparing to teach the CAL curriculum", AssessOwnAbilityCAL= "Assessing my ability to teach the CAL curriculum", AchievingOutcomes  = "Achieving intended student learning outcomes", AssessingOutcomes = "Assessing student learning outcomes", WorkingWithOthersCAL = "Working with others to teach the CAL curriculum")
+```
+
+#### Statement levels
+```{r}
+concerns$Statement <- factor(concerns$Statement, levels = c("Deciding whether I want to teach CAL", "My ability to teach ScratchJr", "Understanding what the CAL curriculum is","Understanding what teaching the CAL curriculum requires","Finding out what students need to know to be successful at coding", "Preparing to teach the CAL curriculum", "Assessing my ability to teach the CAL curriculum",  "Achieving intended student learning outcomes", "Assessing student learning outcomes",  "Working with others to teach the CAL curriculum"))
+```
+
+#### Likert levels
+
+```{r}
+concerns$value <- factor(concerns$value, levels = c("Strongly disagree", "Disagree", "Neither agree nor disagree", "Agree", "Strongly agree"))
+```
+
+#### Recode Likert 
+```{r}
+concerns$value_numeric <- recode(concerns$value, "Strongly disagree" = 1, "Disagree" = 2, "Neither agree nor disagree" = 3,  "Agree" = 4, "Strongly agree" = 5) 
+```
+
+
+#### Plots
+
+
+```{r}
+CAL_concern_plot_numeric <- ggplot(data = concerns, aes(x=Statement,y=value_numeric)) +
+  stat_summary(fun = mean, geom = "bar", na.rm = TRUE)+
+  theme_minimal()+
+  ylim(0,5)+
+  coord_flip()+
+  ggtitle("I am concerned about...")+
+  theme(text = element_text(size=20))
+ggsave("Teachers_concerns_after_PD_numeric.png", width = 16, height = 8, units = "in")
+  geom_bar(position = "fill", stat = "count")+
+  theme_bw()+
+  ylab("Proportion")+
+  ggtitle("I am concerned about...")+
+  coord_flip()+
+  theme(text = element_text(size=20))+
+  theme(legend.position="bottom")+
+  colScaleAgree
+ggsave("Teachers_concerns_after_PD.png", width = 20, height = 6, units = "in")
+```
+### Elements
+
+#### Create long df for training elements
+```{r}
+elements <- post %>% dplyr::select(RecipientLastName, FeedbackTraining_1:FeedbackTraining_5) %>% pivot_longer(names_to = "TrainingElement", cols = FeedbackTraining_1:FeedbackTraining_5) 
+```
+#### Element names
+
+```{r}
+elements$TrainingElement <- recode (elements$TrainingElement,  FeedbackTraining_1 = "Instructor quality", FeedbackTraining_2 = "Session content", FeedbackTraining_3 = "Session format", FeedbackTraining_4 = "Session’s learning climate", FeedbackTraining_5	= "Timing/schedule of training session")
+```
+
+#### Likert levels
+```{r}
+elements$value <- factor(elements$value, levels = c("Needs a lot of improvement", "Needs some improvement", "Met my expectations", "Better than expected", "Couldn't be better"))
+```
+
+#### Recode Likert
+
+```{r}
+elements$value_numeric  <- recode(elements$value , "Needs a lot of improvement" = 1, "Needs some improvement" = 2, "Met my expectations" = 3,  "Better than I expected" = 4, "Couldn't be better" = 5) 
+```
+
+#### Plots 
+
+```{r}
+CAL_trainingelements_plot_numeric <- ggplot(data = elements, aes(x=TrainingElement,y=value_numeric)) +
+  stat_summary(fun = mean, geom = "bar", na.rm = TRUE)+
+  theme_minimal()+
+  ylim(0,5)+
+  coord_flip()+
+  ggtitle("Please rate the following elements of the CAL training session")+
+  theme(text = element_text(size=20))
+ggsave("Trainingfeedback_numeric.png", width = 16, height = 8, units = "in")
+
+TrainingFeedback_plot_categories <- ggplot(data = elements, aes(x=TrainingElement,fill=value)) +
+  geom_bar(position = "fill", stat = "count")+
+  theme_bw()+
+ #theme(axis.text.x=element_text(angle =45, vjust = 0.5, hjust = 0.5))+ # Note that theme must come after theme_bw, otherwise it gets overridden by theme_bw
+  #theme(axis.text.x = element_text(angle = 45))+
+  
+  ylab("Proportion")+
+  ggtitle("Please rate the following elements of the CAL training session")+
+  coord_flip()+
+  theme(text = element_text(size=20))+
+  theme(legend.position="bottom")+
+  colScaleAgree
+ggsave("Trainingfeedback.png", width = 20, height = 6, units = "in")
+```
+
+
+## CS Efficacy
+
+### Create dataframe with questions
+
+```{r}
+efficacy_pre <- pre %>% dplyr::select(RecipientLastName, BasicConcepts:TeachScratchJr, Time)
+efficacy_post <- post %>% dplyr::select(RecipientLastName, BasicConcepts:TeachScratchJr, Time)
+efficacy_postimplementation <- postimplementation %>% dplyr::select(RecipientLastName, BasicConcepts:TeachScratchJr, Time)
+```
+
+```{r}
+efficacy <- rbind(efficacy_pre, efficacy_post, efficacy_postimplementation)
+```
+
+```{r}
+efficacy$Time <- factor(efficacy$Time , levels = c("pre-PD", "post-PD", "post-implementation"))
+```
+
+
+### Recode Likert as numeric
+```{r}
+efficacy$BasicConcepts <- recode(efficacy$BasicConcepts, "StronglyDisagree" = 1, "SomewhatDisagree" = 2, "NeitherAgreeNorDisagree" = 3,  "SomewhatAgree" = 4, "StronglyAgree" = 5) 
+
+efficacy$PlanLogic <- recode(efficacy$PlanLogic, "StronglyDisagree" = 1, "SomewhatDisagree" = 2, "NeitherAgreeNorDisagree" = 3,  "SomewhatAgree" = 4, "StronglyAgree" = 5)
+
+efficacy$FindResources <- recode(efficacy$FindResources, "StronglyDisagree" = 1, "SomewhatDisagree" = 2, "NeitherAgreeNorDisagree" = 3,  "SomewhatAgree" = 4, "StronglyAgree" = 5)
+
+efficacy$FindApplications <- recode(efficacy$FindApplications, "StronglyDisagree" = 1, "SomewhatDisagree" = 2, "NeitherAgreeNorDisagree" = 3,  "SomewhatAgree" = 4, "StronglyAgree" = 5)
+
+efficacy$IntegrateCoding<- recode(efficacy$IntegrateCoding, "StronglyDisagree" = 1, "SomewhatDisagree" = 2, "NeitherAgreeNorDisagree" = 3,  "SomewhatAgree" = 4, "StronglyAgree" = 5)
+
+efficacy$HelpDebug<- recode(efficacy$HelpDebug, "StronglyDisagree" = 1, "SomewhatDisagree" = 2, "NeitherAgreeNorDisagree" = 3,  "SomewhatAgree" = 4, "StronglyAgree" = 5)
+
+efficacy$TeachScratchJr<- recode(efficacy$TeachScratchJr, "StronglyDisagree" = 1, "SomewhatDisagree" = 2, "NeitherAgreeNorDisagree" = 3,  "SomewhatAgree" = 4, "StronglyAgree" = 5)
+```
+
+
+### Basic Concepts
+
+```{r}
+BasicConcepts_plot <- ggplot(data=efficacy, aes(x=Time,y=BasicConcepts, fill=Time)) +
+  stat_summary(fun.y = mean, geom = "bar", na.rm = TRUE)+
+  theme_bw()+
+  ylim(0,5)+
+  theme(axis.text.x=element_text(angle =45, vjust = 0.5, hjust = 0.5))+
+  ggtitle("'I can explain basic programming concepts to children'")
+  #facet_wrap(~RecipientLastName)
+ggsave("BasicConcepts.jpg")
+```
+```{r}
+min_max_mean_sd (efficacy$BasicConcepts[efficacy$Time=="pre-PD"])
+min_max_mean_sd (efficacy$BasicConcepts[efficacy$Time=="post-PD"])
+min_max_mean_sd (efficacy$BasicConcepts[efficacy$Time=="post-implementation"])
+```
+
+### Plan Logic
+
+```{r}
+PlanLogic_plot <- ggplot(data=efficacy, aes(x=Time,y=PlanLogic, fill=Time)) +
+  stat_summary(fun.y = mean, geom = "bar", na.rm = TRUE)+
+  theme_bw()+
+  ylim(0,5)+
+  theme(axis.text.x=element_text(angle =45, vjust = 0.5, hjust = 0.5))+
+ ggtitle("'I can plan out the logic for a computer program.'")+
+  facet_wrap(~RecipientLastName)
+ggsave("_PlanLogic_facet.jpg")
+```
+
+### Find Resources
+```{r}
+FindResources_plot <- ggplot(data=efficacy, aes(x=Time,y=FindResources, fill=Time)) +
+   stat_summary(fun.y = mean, geom = "bar", na.rm = TRUE)+
+  theme_bw()+
+  ylim(0,5)+
+  theme(axis.text.x=element_text(angle =45, vjust = 0.5, hjust = 0.5))+
+  facet_wrap(~RecipientLastName)+
+  ggtitle("I know where to find the resources to help students learn to code.'")
+ggsave("FindResources_plot_facet.jpg")
+```
+
+### Find Applications
+```{r}
+FindApplications_plot <- ggplot(data=efficacy, aes(x=Time,y=FindApplications, fill=Time)) +
+   stat_summary(fun.y = mean, geom = "bar", na.rm = TRUE)+
+  theme_bw()+
+  ylim(0,5)+
+  theme(axis.text.x=element_text(angle =45, vjust = 0.5, hjust = 0.5))+
+  facet_wrap(~RecipientLastName)+
+  ggtitle("I can find applications for coding that are relevant for students.'")
+ggsave("FindApplications_plot_facet.jpg")
+```
+
+
+### Integrate coding
+```{r}
+IntegrateCoding_plot <- ggplot(data=efficacy, aes(x=Time,y=IntegrateCoding, fill=Time)) +
+   stat_summary(fun.y = mean, geom = "bar", na.rm = TRUE)+
+  theme_bw()+
+  ylim(0,5)+
+  theme(axis.text.x=element_text(angle =45, vjust = 0.5, hjust = 0.5))+
+  facet_wrap(~RecipientLastName)+
+  ggtitle("'I can integrate coding into my current curriculum.'")
+ggsave("IntegrateCoding_plot_facet.jpg")
+```
+
+### Help Debug
+```{r}
+Debug_plot <- ggplot(data=efficacy, aes(x=Time,y=HelpDebug, fill=Time)) +
+   stat_summary(fun.y = mean, geom = "bar", na.rm = TRUE)+
+  theme_bw()+
+  ylim(0,5)+
+  theme(axis.text.x=element_text(angle =45, vjust = 0.5, hjust = 0.5))+
+  facet_wrap(~RecipientLastName)+
+  ggtitle("'I can help students debug their code'")
+ggsave("_HelpDebug_plot_facet.jpg")
+```
+
+### Teach ScratchJr
+```{r}
+TeachScratchJr_plot <- ggplot(data=efficacy, aes(x=Time,y=TeachScratchJr, fill=Time)) +
+   stat_summary(fun.y = mean, geom = "bar", na.rm = TRUE)+
+  theme_bw()+
+  ylim(0,5)+
+  theme(axis.text.x=element_text(angle =45, vjust = 0.5, hjust = 0.5))+
+  facet_wrap(~RecipientLastName)+
+  ggtitle("'I can teach ScratchJr to students'")
+ggsave("TeachScratchJr_plot_facet.jpg")
+```
+### Aggregate score for post-implementation efficacy
+
+```{r}
+efficacy_postimplementation_wide <- efficacy %>% filter(Time == "post-implementation") %>% dplyr::select(RecipientLastName:TeachScratchJr) %>% mutate(SumScore = select(., BasicConcepts:TeachScratchJr) %>% rowSums(na.rm = TRUE))  %>% dplyr::select(RecipientLastName, SumScore)
+```
+
+## Midpoint
+
+### Resources & individuals rating
+
+#### Long df for resources/individuals
+
+```{r}
+resources_individuals_mid <- mid %>% dplyr::select(ResourcesRating_1, ResourcesRating_2, IndividualsRating_1, IndividualsRating_2) %>% pivot_longer(names_to = "Resource", cols = ResourcesRating_1:IndividualsRating_2) 
+```
+
+#### Change names 
+
+```{r}
+resources_individuals_mid$Resource <- recode (resources_individuals_mid$Resource,  ResourcesRating_1 = "AccessTablets", ResourcesRating_2 = "CALCurriculum", FeedbackTraining_3 = "Session format", IndividualsRating_1 = "Principal", IndividualsRating_2	= "CentralAdmin")
+```
+
+#### Likert levels
+
+```{r}
+resources_individuals_mid$value <- factor(resources_individuals_mid$value, levels = c("Needs a lot of improvement", "Needs some improvement", "Met my expectations", "Better than expected", "Couldn't be better"))
+```
+
+#### Recode Likert
+
+```{r}
+resources_individuals_mid$value_numeric <- recode(resources_individuals_mid$value, "Needs a lot of improvement" = 1, "Needs some improvement" = 2, "Met my expectations" = 3,  "Better than I expected" = 4, "Couldn't be better" = 5) 
+```
+
+#### Plots
+
+```{r}
+names(myColorScaleImprove) <- levels(resources_individuals_mid$value)
+colScaleImprove <- scale_fill_manual(name = "value", values = myColorScaleImprove, drop = FALSE)
+ResourcesIndividuals_midpoint_numeric <- ggplot(data = resources_individuals_mid, aes(x=Resource,y=value_numeric)) +
+  stat_summary(fun = mean, geom = "bar", na.rm = TRUE)+
+  theme_minimal()+
+  ylim(0,5)+
+  coord_flip()+
+  ggtitle("Please rate the resources/support of individuals (N=8)")+
+  theme(text = element_text(size=20))+
+  ylab("1 = needs a lot of improvement ... 5 = couldn't be better")
+ggsave("ResourcesIndividuals_mid_numeric.png", width = 16, height = 8, units = "in")
+ResourcesIndividuals_midpoint_categories <- ggplot(data = resources_individuals_mid, aes(x=Resource,fill=value)) +
+  geom_bar(position = "fill", stat = "count")+
+  theme_minimal()+
+  ggtitle("Please rate the resources/support of individuals (N=8)")+
+  coord_flip()+
+  theme(text = element_text(size=20))+
+  theme(legend.position="bottom")+
+  colScaleImprove
+ggsave("ResourcesIndividuals_mid_.png", width = 20, height = 6, units = "in")
+```
+
+
+## Post-Implementation
+
+### Resources & individuals rating
+
+#### Long df for resources/individuals
+
+```{r}
+resources_individuals_postimplementation <- postimplementation %>% dplyr::select(ResourcesRating_1, ResourcesRating_2, IndividualsRating_1, IndividualsRating_2) %>% pivot_longer(names_to = "Resource", cols = ResourcesRating_1:IndividualsRating_2) 
+```
+
+#### Change names 
+
+```{r}
+resources_individuals_postimplementation$Resource <- recode (resources_individuals_postimplementation$Resource,  ResourcesRating_1 = "AccessTablets", ResourcesRating_2 = "CALCurriculum", FeedbackTraining_3 = "Session format", IndividualsRating_1 = "Principal", IndividualsRating_2	= "CentralAdmin")
+```
+
+#### Likert levels
+
+```{r}
+resources_individuals_postimplementation$value <- factor(resources_individuals_postimplementation$value, levels = c("Needs a lot of improvement", "Needs some improvement", "Met my expectations", "Better than expected", "Couldn't be better"))
+```
+
+#### Recode Likert
+
+```{r}
+resources_individuals_postimplementation$value_numeric <- recode(resources_individuals_postimplementation$value, "Needs a lot of improvement" = 1, "Needs some improvement" = 2, "Met my expectations" = 3,  "Better than I expected" = 4, "Couldn't be better" = 5) 
+```
+
+#### Plots
+
+```{r}
+ResourcesIndividuals_postimplementationpoint_numeric <- ggplot(data = resources_individuals_postimplementation, aes(x=Resource,y=value_numeric)) +
+  stat_summary(fun = mean, geom = "bar", na.rm = TRUE)+
+  theme_minimal()+
+  ylim(0,5)+
+  coord_flip()+
+  ggtitle("Please rate the resources/support of individuals (N=9)")+
+  theme(text = element_text(size=20))+
+  ylab("1 = needs a lot of improvement ... 5 = couldn't be better")
+ggsave("ResourcesIndividuals_postimplementation_numeric.png", width = 16, height = 8, units = "in")
+ResourcesIndividuals_postimplementationpoint_categories <- ggplot(data = resources_individuals_postimplementation, aes(x=Resource,fill=value)) +
+  geom_bar(position = "fill", stat = "count")+
+  theme_minimal()+
+  ggtitle("Please rate the resources/support of individuals (N=9)")+
+  coord_flip()+
+  theme(text = element_text(size=20))+
+  theme(legend.position="bottom")+
+  ylab ("Value")+
+  colScaleImprove
+ggsave("ResourcesIndividuals_postimplementation.png", width = 20, height = 6, units = "in")
+```
+# Export teacher aggregate values
+
+```{r}
+teacher_aggregate_scores <- merge(confidence_wide, efficacy_postimplementation_wide, by ="RecipientLastName") %>% dplyr::select(RecipientLastName, Confidence = SumScore.x, Efficacy = SumScore.y)
+write.csv(teacher_aggregate_scores, "210610_Teacher_Aggregate_Scores.csv", row.names = F)
+```

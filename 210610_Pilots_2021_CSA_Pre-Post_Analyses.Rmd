@@ -1,0 +1,654 @@
+---
+title: "CAL ScratchJr CSA pre/post analysis"
+author: "L E de Ruiter"
+date: "6/04/2021"
+output: html_document
+---
+
+
+# Preliminaries
+## About the data
+
+The current data contains responses from students before they were taught the CAL curriculum and after they were taught the CAL curriculum as well as teachers before they attended the professional development (PD) and after. 
+
+## Load libraries
+
+```{r}
+checkpoint::checkpoint("2021-06-10")
+```
+
+## Colorblind-friendly palette
+
+```{r colour_palettes, include=FALSE}
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cbbPalette <- c("#999999","#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7","#5C5C5C")
+```
+
+
+## Read in data
+```{r}
+CSA <- read.csv("210603_CSA_clean.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+CSA <- CSA %>% slice(-1:-2) 
+```
+
+
+```{r}
+CSA <- gdata::drop.levels(CSA)
+```
+
+
+```{r}
+teacher_info <- read.csv("210606_Teacher_Info_FOI.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+```
+
+```{r}
+student_info <- read.csv("210610_DoE_Pilot_Student_Info.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+```
+
+Data from the Shaffer Group. 
+```{r}
+shaffer <-read.csv("210603_CSA_Shaffer_clean.csv", strip.white = T, stringsAsFactors = T, na.strings = c("", NA))
+shaffer <- shaffer %>% slice(-1:-2)
+```
+
+
+## Functions
+
+### Mode
+
+```{r}
+# Create the function.
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+```
+
+
+### Min, max, mean, SD
+
+```{r}
+min_max_mean_sd <- function(variable){
+  
+  min = round(min(variable, na.rm = T),1)
+  max = round(max(variable, na.rm = T),1)
+  mean = round(mean(variable, na.rm = T),1)
+  sd = round(sd(variable, na.rm = T),1)
+  
+  my_list = list(min, max, mean, sd) 
+  
+  return(my_list)
+}
+```
+
+```{r}
+#+++++++++++++++++++++++++
+# Function to calculate the mean and the standard deviation
+  # for each group
+#+++++++++++++++++++++++++
+data_summary <- function(data, varname, groupnames){
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+ return(data_sum)
+}
+```
+
+
+## Vectors
+
+### Teachers
+
+These are teachers who taught the curriculum
+```{r}
+FinalTeachers <- c("T01", "T02", "T03", "T04", "T05") 
+```
+
+
+# Cleaning data
+
+## Remove IRR
+We're only interested in the primary researcher data
+
+```{r}
+CSA <- CSA %>% filter(IRR != "IRR" | is.na(IRR)) 
+```
+
+```{r}
+shaffer <- shaffer %>% filter(IRR != "IRR" | is.na(IRR))
+```
+
+
+## Fixing SC -> string variable names
+
+```{r}
+CSA$SC0 <- as.numeric(as.character(CSA$SC0))
+CSA$SC1 <- as.numeric(as.character(CSA$SC1))
+CSA$SC2 <- as.numeric(as.character(CSA$SC2))
+CSA$SC3 <- as.numeric(as.character(CSA$SC3))
+CSA$SC4 <- as.numeric(as.character(CSA$SC4))
+CSA$SC5 <- as.numeric(as.character(CSA$SC5))
+```
+
+```{r}
+shaffer$SC0 <- as.numeric(as.character(shaffer$SC0))
+shaffer$SC1 <- as.numeric(as.character(shaffer$SC1))
+shaffer$SC2 <- as.numeric(as.character(shaffer$SC2))
+shaffer$SC3 <- as.numeric(as.character(shaffer$SC3))
+shaffer$SC4 <- as.numeric(as.character(shaffer$SC4))
+shaffer$SC5 <- as.numeric(as.character(shaffer$SC5))
+```
+
+
+```{r}
+CSA$EmergentScore <- as.numeric(as.character(CSA$EmergentScore))
+CSA$CodingDecodingScore <- as.numeric(as.character(CSA$CodingDecodingScore))
+CSA$FluencyScore <- as.numeric(as.character(CSA$FluencyScore))
+CSA$NewKnowledgeScore <- as.numeric(as.character(CSA$NewKnowledgeScore))
+CSA$PurposefulnessScore <- as.numeric(as.character(CSA$PurposefulnessScore))
+```
+
+
+```{r}
+shaffer$EmergentScore <- as.numeric(as.character(shaffer$Emergent.Score))
+shaffer$CodingDecodingScore <- as.numeric(as.character(shaffer$Coding.and.Decoding.Score))
+shaffer$FluencyScore <- as.numeric(as.character(shaffer$Fluency.Score))
+shaffer$NewKnowledgeScore <- as.numeric(as.character(shaffer$New.Knowledge.Score))
+shaffer$PurposefulnessScore <- NA 
+```
+
+Now we can merge the variables 
+```{r}
+CSA$EmergentScore <- ifelse(is.na(CSA$EmergentScore), CSA$SC1, CSA$EmergentScore)
+CSA$CodingDecodingScore <- ifelse(is.na(CSA$CodingDecodingScore), CSA$SC2, CSA$CodingDecodingScore)
+CSA$FluencyScore <- ifelse(is.na(CSA$FluencyScore), CSA$SC3, CSA$FluencyScore)
+CSA$NewKnowledgeScore <- ifelse(is.na(CSA$NewKnowledgeScore), CSA$SC4, CSA$NewKnowledgeScore)
+CSA$PurposefulnessScore <- ifelse(is.na(CSA$PurposefulnessScore), CSA$SC5, CSA$PurposefulnessScore)
+```
+
+```{r}
+shaffer$EmergentScore <- ifelse(is.na(shaffer$EmergentScore), shaffer$SC1, shaffer$EmergentScore)
+shaffer$CodingDecodingScore <- ifelse(is.na(shaffer$CodingDecodingScore), shaffer$SC2, shaffer$CodingDecodingScore)
+shaffer$FluencyScore <- ifelse(is.na(shaffer$FluencyScore), shaffer$SC3, shaffer$FluencyScore)
+shaffer$NewKnowledgeScore <- ifelse(is.na(shaffer$NewKnowledgeScore), shaffer$SC4, shaffer$NewKnowledgeScore)
+shaffer$PurposefulnessScore <- ifelse(is.na(shaffer$PurposefulnessScore), shaffer$SC5, shaffer$PurposefulnessScore)
+```
+
+Calculating TotalScore
+```{r}
+for (row in 1:nrow(CSA)){
+  
+  CSA$TotalScore[row] <- sum(CSA$EmergentScore[row], CSA$CodingDecodingScore[row], CSA$FluencyScore[row], CSA$NewKnowledgeScore[row], CSA$PurposefulnessScore[row])
+  
+}
+
+```
+
+```{r}
+for (row in 1:nrow(shaffer)){
+  
+  shaffer$TotalScore[row] <- sum(shaffer$EmergentScore[row], shaffer$CodingDecodingScore[row], shaffer$FluencyScore[row], shaffer$NewKnowledgeScore[row], shaffer$PurposefulnessScore[row])
+  
+}
+
+```
+
+We now can remove the variables SC0...SC5 
+
+```{r}
+CSA$SC0 <- NULL
+CSA$SC1 <- NULL
+CSA$SC2 <- NULL
+CSA$SC3 <- NULL
+CSA$SC4 <- NULL
+CSA$SC5 <- NULL
+```
+
+```{r}
+shaffer$SC0 <- NULL
+shaffer$SC1 <- NULL
+shaffer$SC2 <- NULL
+shaffer$SC3 <- NULL
+shaffer$SC4 <- NULL
+shaffer$SC5 <- NULL
+```
+
+We can also remove the superfluous variables
+
+```{r}
+shaffer$Emergent.Score <- NULL
+shaffer$Coding.and.Decoding.Score <- NULL
+shaffer$Fluency.Score <- NULL
+shaffer$New.Knowledge.Score <- NULL
+```
+
+
+We are also removing CodingStage
+
+```{r}
+CSA$CodingStage <- NULL
+```
+
+```{r}
+shaffer$Coding.Stage <- NULL
+```
+
+## Adding TeacherID
+
+```{r}
+teacher_info <- teacher_info %>% dplyr::select(TeacherName, TeacherID)
+```
+
+```{r}
+CSA <- merge(CSA, teacher_info, by.x="LastName", by.y="TeacherName", all.x=TRUE)
+```
+
+## Adding Student Info
+
+```{r}
+student_info <- student_info %>% dplyr::select(StudentID, Gender, TeacherID)
+CSA  <- merge(CSA, student_info, by.x="StudentID", by.y="StudentID", all.x=TRUE)
+```
+
+```{r}
+shaffer <- merge(shaffer, student_info, by.x="StudentID", by.y="StudentID", all.x=TRUE)
+```
+
+We now have several columns repeated and complementary (TeacherID.x, and TeacherID.y). 
+```{r}
+CSA <- CSA  %>% dplyr::mutate(TeacherID = coalesce(TeacherID.x,TeacherID.y))
+```
+
+## Selecting variables
+
+Removing variables
+```{r}
+CSA <- CSA %>% dplyr::select(-CaseNumber, -EndDate, -Status, -IPAddress, -Progress, -Finished, -RecordedDate, -ResponseId, -RecipientFirstName, -RecipientLastName, -RecipientEmail, -ExternalReference, -LocationLatitude, -LocationLongitude, -DistributionChannel, -UserLanguage, -Administrator, -IRR) %>% dplyr::select(-FirstName, -LastName, -TeacherID.x, TeacherID.y) %>%  dplyr::select(!ends_with("Comments")) 
+```
+
+```{r}
+shaffer <- shaffer %>% dplyr::select(-EndDate, -Status, -IPAddress, -Progress, -Finished, -RecordedDate, -ResponseId,-RecipientFirstName, -RecipientLastName, -RecipientEmail, -ExternalReference, -LocationLatitude, -LocationLongitude, -DistributionChannel, -UserLanguage, -DateofBirth, -Gender.x, -Researcher, -IRR) %>% dplyr::select(!ends_with("Comments")) %>% dplyr::rename(Gender = Gender.y)
+```
+
+## Renaming variables
+```{r}
+CSA <- CSA %>% dplyr::rename (DateTime = StartDate, DurationSeconds = Duration..in.seconds., TimeOfTest = TestTimePoint)
+```
+
+```{r}
+shaffer <- shaffer %>% dplyr::rename (DateTime = StartDate, DurationSeconds = Duration..in.seconds., TimeOfTest = TestTimePoint)
+```
+
+
+## Reordering variables
+
+```{r}
+CSA <- CSA %>% dplyr::select(StudentID, TeacherID, Gender, DateTime:EmergentScore, CodingDecodingScore, FluencyScore, NewKnowledgeScore, PurposefulnessScore, TotalScore)
+```
+
+```{r}
+shaffer <- shaffer %>% dplyr::select(StudentID, TeacherID, Gender, DateTime:EmergentScore, CodingDecodingScore, FluencyScore, NewKnowledgeScore, PurposefulnessScore, TotalScore)
+```
+
+## Merging datasets
+
+```{r}
+CSA <- rbind(CSA, shaffer)
+```
+
+Comment in this discussion suggests there's a way to do this for the entire data frame instead of for isolated variables using the drop.levels function in the gdata package.
+
+
+```{r}
+CSA <- gdata::drop.levels(CSA)
+```
+
+
+## Recoding factors and factor levels
+```{r}
+CSA$Grade <- factor(CSA$Grade, levels = c("Kindergarten", "FirstGrade", "SecondGrade"))
+```
+
+We will create a new variable that uses the initial of the first name and the last name to form "name".
+
+```{r}
+CSA$TimeOfTest <- as.factor(CSA$TimeOfTest) 
+
+```
+
+## Fixing the date
+We need to get the date.
+```{r}
+CSA$DateTime <- as.character(CSA$DateTime) 
+CSA$DateTime  <- CSA$DateTime  %>%
+    strsplit(., " ") %>% 
+    sapply(head, 1 ) 
+
+CSA$DateTime <- mdy(CSA$DateTime)
+```
+
+
+Recall that on 12/23, questions 2.1 and 2.2 were swapped. 
+
+```{r}
+# 
+CSA$Q2.1_new <- ifelse(CSA$DateTime < "2020-12-23", CSA$Q2.2,  CSA$Q2.1) 
+CSA$Q2.2_new <- ifelse(CSA$DateTime >= "2020-12-23", CSA$Q2.1,  CSA$Q2.2) 
+
+CSA$Q2.1 <- CSA$Q2.1_new
+CSA$Q2.2 <- CSA$Q2.2_new
+
+CSA$Q2.1_new <- NULL
+CSA$Q2.2_new <- NULL
+```
+
+
+## Calculating new variables
+
+### Coding Stages
+
+```{r}
+CSA[, 11:40][is.na(CSA[, 11:40])] <- 0
+```
+
+Create a variable CodingStage
+```{r}
+CSA$CodingStage = NA
+```
+
+```{r}
+
+for (row in 1:nrow(CSA)){ 
+  if (CSA[row, "PurposefulnessScore"] >= 5){
+  CodingStage = "Purposefulness"
+  
+ } else if (CSA[row, "NewKnowledgeScore"] >= 5){
+  CodingStage = "NewKnowledge"
+
+} else if (CSA[row,"NewKnowledgeScore"] &  CSA[row,"NewKnowledgeScore"] < 5 & CSA[row,"FluencyScore"] >= 5){
+  CodingStage = "Fluency"
+  
+} else if (CSA[row,"FluencyScore"] &  CSA[row,"FluencyScore"] < 5 & CSA[row,"CodingDecodingScore"] >= 5){
+  CodingStage = "CodingDecoding" 
+  
+ }else if (CSA[row,"EmergentScore"] & CSA[row,"EmergentScore"] >= 4){
+     CodingStage = "Emergent"  
+     
+} else {
+  CodingStage = "Pre Coding Stage"
+}
+  
+  CSA$CodingStage[row] <- CodingStage
+  
+}
+```
+
+```{r}
+CSA$CodingStage <- factor(CSA$CodingStage, levels = c("Pre Coding Stage", "Emergent","CodingDecoding","Fluency","NewKnowledge", "Purposefulness")) 
+```
+
+
+### Weighted Score
+
+```{r Weighting}
+for (row in 1:nrow(CSA)){ 
+  CSA$WeightedScore[row] <- sum(CSA$Emergent[row]*1.1, CSA$CodingDecoding[row]*1.2, CSA$Fluency[row]*1.3, CSA$NewKnowledge[row]*(1.4),CSA$NewKnowledge[row]*(1.5) )
+  
+}
+
+```
+
+```{r}
+number_of_stages <- 5
+
+max_sum_score <- number_of_stages * 6
+weighted_score_max <- 6  * 1.1  + 6  * 1.2 + 6  * 1.3 + 6  * 1.4 + 6 * 1.5 
+
+```
+
+
+
+## Creating additional data frames
+
+### Students only
+
+```{r}
+CSA_students <- subset (CSA, StudentOrTeacher == "Student")
+```
+
+```{r}
+CSA_students$TimeOfTest <- factor(CSA_students$TimeOfTest, levels = c("PreCurriculum", "PostCurriculum"))
+```
+
+```{r}
+CSA_students_wide <- CSA_students %>% dplyr::select(StudentID, School, Grade, TimeOfTest, WeightedScore)%>% dplyr::mutate(row = row_number())
+```
+
+```{r}
+CSA_students_wide <- CSA_students_wide  %>%  pivot_wider(
+    names_from = TimeOfTest, 
+    values_from = WeightedScore) %>% dplyr::select(-row) %>% arrange(StudentID)
+CSA_students_wide
+```
+
+```{r}
+CSA_students_wide_precurriculum <- CSA_students_wide %>% dplyr::select(-PostCurriculum) %>% na.omit()
+CSA_students_wide_postcurriculum <- CSA_students_wide%>% dplyr::select(-PreCurriculum) %>% na.omit()
+```
+
+```{r}
+CSA_students_wide <- left_join(CSA_students_wide_precurriculum, CSA_students_wide_postcurriculum, by = c("StudentID", "School", "Grade")) %>% dplyr::select(StudentID, School, Grade, PreCurriculum, PostCurriculum)
+```
+
+```{r}
+CSA_students_wide$ChangeScore <- CSA_students_wide$PostCurriculum - CSA_students_wide$PreCurriculum
+```
+
+### Teachers only
+
+```{r}
+CSA_teachers <- subset (CSA, StudentOrTeacher == "Teacher")
+```
+Let's use teachers who taught.
+
+```{r}
+CSA_teachers <- CSA_teachers %>% dplyr::filter(TeacherID %in% FinalTeachers) %>% dplyr::select(TeacherID, School, TimeOfTest, WeightedScore, CodingStage) %>% dplyr::mutate(row = row_number()) %>% dplyr::mutate(TeacherID2 = paste0(School, TeacherID))
+```
+
+
+```{r}
+CSA_teachers$TimeOfTest <- factor(CSA_teachers$TimeOfTest, levels = c("PreTraining", "PostTraining", "PostCurriculumTeacher"))
+```
+
+
+```{r}
+CSA_teachers_wide <- CSA_teachers %>% dplyr::select(-TeacherID, -School) %>% pivot_wider(
+    names_from = TimeOfTest, 
+    values_from = WeightedScore) %>% dplyr::select(-row) %>% arrange(TeacherID2) 
+```
+
+
+```{r}
+CSA_teachers_wide_pre <- CSA_teachers_wide %>% dplyr::select(PreTraining, TeacherID2) %>% na.omit()
+CSA_teachers_wide_post <-CSA_teachers_wide %>% dplyr::select(PostTraining, TeacherID2) %>% na.omit()
+CSA_teachers_wide_postcurriculum <- CSA_teachers_wide %>% dplyr::select(PostCurriculumTeacher, TeacherID2) %>% na.omit()
+```
+
+```{r}
+CSA_teachers_wide <- merge(CSA_teachers_wide_pre, CSA_teachers_wide_post, by.x = "TeacherID2", by.y = "TeacherID2")
+CSA_teachers_wide < cbind(CSA_teachers_wide, CSA_teachers_wide_postcurriculum, by = "TeacherID2", all = T)
+```
+
+```{r}
+merge(data.frame(CSA_teachers_wide, row.names=NULL), data.frame( CSA_teachers_wide_postcurriculum, row.names=NULL), 
+  by = 0, all = TRUE)[-1]
+```
+
+
+```{r}
+CSA_teachers_wide %>% dplyr::select(TeacherID2)
+```
+
+
+```{r}
+CSA_teachers_wide$ChangeScore1 <- (CSA_teachers_wide$PostTraining-CSA_teachers_wide$PreTraining)
+```
+
+
+
+### Small df
+```{r}
+CSA_small <- CSA %>% dplyr::select(StudentID, TimeOfTest, WeightedScore, CodingStage)
+```
+
+
+# Visualizations
+
+
+## Barplot weighted Score
+
+```{r}
+CSA_summary_students <- data_summary(CSA_students, varname="WeightedScore",  groupnames="TimeOfTest")
+CSA_summary_students$TimeOfTest <- factor(CSA_summary_students$TimeOfTest, levels = c("PreCurriculum", "PostCurriculum"))
+CSA_summary_students <-na.omit(CSA_summary_students) 
+
+CSA_summary_teachers  <- data_summary(CSA_teachers, varname="WeightedScore", groupnames="TimeOfTest")
+CSA_summary_teachers$TimeOfTest <- factor(CSA_summary_teachers$TimeOfTest, levels = c("PreTraining", "PostTraining", "PostCurriculumTeacher"))
+```
+
+```{r}
+PrePost_WeightedScore_CSA_students <- ggplot(CSA_summary_students , aes(TimeOfTest, WeightedScore, fill = TimeOfTest))+
+  geom_bar(stat = "summary", fun.y = "mean", position = "dodge")+
+  geom_errorbar(aes(ymin=WeightedScore-sd, ymax=WeightedScore+sd), width=.2, position=position_dodge(.9)) +
+  scale_fill_manual(values=cbPalette)+
+  theme_bw()+
+  xlab ("Time of Test")+
+  ylab ("CSA Score")
+
+ggsave("PrePost_WeightedScore_CSA.png")
+```
+```{r}
+PrePost_WeightedScore_CSA_students_grade_barplot <- ggplot(CSA_students[!is.na(CSA_students$Grade),], aes(TimeOfTest, WeightedScore, fill = TimeOfTest))+
+  geom_bar(stat = "summary", fun.y = "mean", position = "dodge")+
+  #geom_errorbar(aes(ymin=WeightedScore-sd, ymax=WeightedScore+sd), width=.2, position=position_dodge(.9)) +
+  scale_fill_manual(values=cbPalette)+
+  theme_bw()+
+  xlab ("Time of Test")+
+  ylab ("CSA Weighted Score")+
+  facet_wrap(~Grade)+
+  theme(legend.position = "none")
+ggsave("PrePost_WeightedScore_CSA_students_barplot.png")
+```
+
+## Boxplot weighted
+
+```{r}
+PrePost_WeightedScore_CSA_students_grade_boxplot <- ggplot(CSA_students[!is.na(CSA_students$Grade),], aes(TimeOfTest, WeightedScore, fill = TimeOfTest))+
+  geom_boxplot()+
+  scale_fill_manual(values=cbPalette)+
+  theme_bw()+
+  xlab ("Time of Test")+
+  ylab ("CSA Weighted Score")+
+  facet_wrap(~Grade)+
+  theme(legend.position = "none")
+ggsave("PrePost_WeightedScore_CSA_students_box.png")
+```
+
+```{r}
+PrePost_WeightedScore_CSA_teachers <- ggplot(CSA_summary_teachers , aes(TimeOfTest, WeightedScore, fill = TimeOfTest))+
+  geom_bar(stat = "summary", fun.y = "mean", position = "dodge")+
+  geom_errorbar(aes(ymin=WeightedScore-sd, ymax=WeightedScore+sd), width=.2, position=position_dodge(.9)) +
+  scale_fill_manual(values=cbPalette)+
+  theme_bw()+
+  xlab ("Time of Test")+
+  ylab ("CSA Score")
+ggsave("PrePost_WeightedScore_CSA_teachers.png")
+```
+
+## Pirateplot weighted score
+
+```{r}
+CSA_pirate <- yarrr::pirateplot(formula = WeightedScore ~ TimeOfTest, 
+                   data = CSA_students,
+                   theme = 2,
+                   point.o = .4,
+                   bean.b.o = .3,
+                   pal = 'info') 
+CSA_pirate
+```
+## Barplot stages
+
+```{r}
+CSA_Stage_bar <- ggplot(CSA_students, aes(CodingStage, group = TimeOfTest, fill=TimeOfTest))+
+  geom_bar(stat = "count", position = "dodge")+
+  scale_fill_manual(values=cbPalette)+
+  scale_x_discrete(drop = FALSE)+
+  theme_minimal()+theme_classic()+theme(legend.position="top")+
+  facet_wrap(~TimeOfTest)+
+  theme_bw()+
+  xlab("Coding Stage")+
+  ylab("Number of Participants")+
+  ylim(0,200)+
+  geom_text(stat='count', aes(label=..count..), vjust=-1)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme(legend.position = "none")
+ggsave("CSA_students_stage_bar.png")
+```
+```{r}
+CSA_Stage_bar_teachers <- ggplot(CSA_teachers, aes(CodingStage, group = TimeOfTest, fill=TimeOfTest))+
+  geom_bar(stat = "count", position = "dodge")+
+  scale_fill_manual(values=cbPalette)+
+  scale_x_discrete(drop = FALSE)+
+  theme_minimal()+theme_classic()+theme(legend.position="top")+
+  facet_wrap(~TimeOfTest)+
+  theme_bw()+
+  xlab("Coding Stage")+
+  ylab("Number of Participants")+
+  ylim(0,6)+
+  geom_text(stat='count', aes(label=..count..), vjust=-1)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme(legend.position = "none")
+ggsave("Teacher_CSA_Stage_bar.png")
+```
+
+## Barplot change score
+
+```{r}
+CSA_bar_changescore_students <- ggplot(CSA_students_wide, aes(x = Grade, y = ChangeScore, fill = Grade))+
+  geom_boxplot()+
+  scale_fill_manual(values=cbPalette)+
+  scale_x_discrete(drop = FALSE)+
+  theme_minimal()+theme_classic()+theme(legend.position="top")+
+  theme_bw()+
+  xlab("Grade")+
+  ylab("Change score")+
+  theme(legend.position = "none")
+ggsave("210610_boxplot_CSA_changescore.png")
+```
+
+
+
+# Descriptives and Analyses
+
+## Average change score
+
+### Students
+```{r}
+min_max_mean_sd(CSA_students_wide$ChangeScore[CSA_students_wide$Grade =="Kindergarten"])
+min_max_mean_sd(CSA_students_wide$ChangeScore[CSA_students_wide$Grade =="FirstGrade"])
+min_max_mean_sd(CSA_students_wide$ChangeScore[CSA_students_wide$Grade =="SecondGrade"])
+```
+
+### Teachers
+```{r}
+min_max_mean_sd(CSA_teachers_wide$ChangeScore[CSA_teachers_wide$TimeOfTest =="Kindergarten"])
+min_max_mean_sd(CSA_teachers_wide$ChangeScore[CSA_teachers_wide$Grade =="FirstGrade"])
+min_max_mean_sd(CSA_teacgers_wide$ChangeScore[CSA_teachers_wide$Grade =="SecondGrade"])
+```
+
+
